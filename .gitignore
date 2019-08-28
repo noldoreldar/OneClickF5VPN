@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/OneClickF5Login/bin/Debug
+/OneClickF5Login/obj
+/packages
+/OneClickF5Login.sln.DotSettings.user
