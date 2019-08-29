@@ -20,7 +20,7 @@ namespace OneClickF5Login
 {
     public partial class Form1 : Form
     {
-        private readonly string DefaultChromeDataPath = @"C:\Users\ibrahim.aydin15\AppData\Local\Google\Chrome\User Data";
+        private readonly string DefaultChromeDataPath = @"";
 
         private const string DefaultChromePath = @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe";
         private ChromeDriver ChromeDriver { get; set; }
