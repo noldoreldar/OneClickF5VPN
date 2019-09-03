@@ -95,12 +95,12 @@ namespace OneClickF5Login
                     ChromeDriver.Manage().Window.Position = new Point(6000, 6000);
                 }
                 _statusMessage = "Chrome ayarları yapılıyor.";
-                Thread.Sleep(1000);
+                Thread.Sleep(500);
                 var cookies = ChromeDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("sslvpn.saglik.gov.tr")).ToList();
                 cookies.ForEach(cookie => ChromeDriver.Manage().Cookies.DeleteCookie(cookie));
                 _statusMessage = "Sağlık Bakanlığı SSL VPN sayfası yükleniyor.";
                 ChromeDriver.Url = "https://sslvpn.saglik.gov.tr";
-                Thread.Sleep(1000);
+                Thread.Sleep(500);
                 await NewSessionIfNecessary();
                 _statusMessage = "VPN kullanıcı giriş işlemi gerçekleştiriliyor.";
                 await LoginSession(txtUserName.Text, txtPassword.Text);
@@ -114,7 +114,7 @@ namespace OneClickF5Login
                 _statusMessage = "VPN bağlantısı kontrol ediliyor.";
                 await WaitUntilPingSuccess(10000);
                 _statusMessage = "İşlem başarılı.";
-                Thread.Sleep(1000);
+                Thread.Sleep(500);
                 _statusMessage = "";
                 EnableDisableForm(true);
                 Close();
@@ -152,7 +152,7 @@ namespace OneClickF5Login
                 {
                     return;
                 }
-                Thread.Sleep(1000);
+                Thread.Sleep(200);
             }
         }
 
