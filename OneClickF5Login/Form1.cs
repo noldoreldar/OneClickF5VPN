@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Configuration;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -23,10 +22,11 @@ namespace OneClickF5Login
     {
         private readonly string _defaultBrowserDataPath = @"firefox-browser\profile-data";
 
-        private readonly string _defaultBrowserPath = @"firefox-browser\firefox.exe";
+        private readonly string _defaultBrowserPath = @"firefox-browser\Firefox.exe";
+
         private FirefoxDriver BrowserDriver { get; set; }
 
-        private const string ConfigUid = "{049DD0E0-1751-45B3-B840-84ED1C6A018A}";
+        private const string ConfigUid = "{570D8D4D-009E-47D6-8040-43B628933891}";
 
         private static string _statusMessage = string.Empty;
 
@@ -99,7 +99,7 @@ namespace OneClickF5Login
                 }
                 _statusMessage = "Browser ayarları yapılıyor.";
                 Thread.Sleep(500);
-                var cookies = BrowserDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("sslvpn.saglik.gov.tr")).ToList();
+                var cookies = BrowserDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("SslVpn.saglik.gov.tr")).ToList();
                 cookies.ForEach(cookie => BrowserDriver.Manage().Cookies.DeleteCookie(cookie));
                 _statusMessage = "Sağlık Bakanlığı SSL VPN sayfası yükleniyor.";
                 BrowserDriver.Url = "https://sslvpn.saglik.gov.tr";
@@ -128,7 +128,8 @@ namespace OneClickF5Login
                 EnableDisableForm(true);
                 btnLogin.Invoke(new Action(() =>
                 {
-                    MessageBox.Show($"{exception.Message}\r\n--------------\r\n--------------\r\n{exception}");
+                    var message = $"{exception.Message}\r\n--------------\r\n--------------\r\n{exception}";
+                    MessageBox.Show(message);
                 }));
             }
         }
@@ -148,30 +149,31 @@ namespace OneClickF5Login
             }));
         }
 
-        private async Task WaitUntilPingSuccess(int maxTimeout)
+        private Task WaitUntilPingSuccess(int maxTimeout)
         {
-            DateTime startTime = DateTime.Now;
+            var startTime = DateTime.Now;
 
             while (!PingHost("tfs.saglik.gov.tr"))
             {
                 if ((DateTime.Now - startTime).TotalMilliseconds > maxTimeout)
                 {
-                    return;
+                    return Task.FromResult(0);
                 }
                 Thread.Sleep(200);
             }
+            return Task.FromResult(0);
         }
 
         public static bool PingHost(string nameOrAddress)
         {
-            bool pingable = false;
-            Ping pinger = null;
+            var canPing = false;
+            Ping ping = null;
 
             try
             {
-                pinger = new Ping();
-                var reply = pinger.Send(nameOrAddress);
-                if (reply != null) pingable = reply.Status == IPStatus.Success;
+                ping = new Ping();
+                var reply = ping.Send(nameOrAddress);
+                if (reply != null) canPing = reply.Status == IPStatus.Success;
             }
             catch (PingException)
             {
@@ -179,10 +181,10 @@ namespace OneClickF5Login
             }
             finally
             {
-                pinger?.Dispose();
+                ping?.Dispose();
             }
 
-            return pingable;
+            return canPing;
         }
 
         private void SaveValuesToConfiguration()
@@ -208,7 +210,7 @@ namespace OneClickF5Login
 
         private void ValidateInputs()
         {
-            StringBuilder errMessage = new StringBuilder();
+            var errMessage = new StringBuilder();
 
 
             if (string.IsNullOrEmpty(txtUserName.Text))
@@ -242,6 +244,7 @@ namespace OneClickF5Login
 
             if (string.IsNullOrEmpty(txtOtpKey.Text))
             {
+                // ReSharper disable once StringLiteralTypo
                 errMessage.AppendLine("-- OTP Key boş değer olamaz !!! VPN sistemine tarayıcı üzerinden kendiniz girerek, Token QR Code üzerinden key değerini alınız. QR Code okumak için örnek web sitesi : zxing.org/w/decode.jspx");
             }
 
@@ -257,7 +260,7 @@ namespace OneClickF5Login
             if (BrowserDriver != null) return;
             var service = FirefoxDriverService.CreateDefaultService();
             service.HideCommandPromptWindow = true;
-            var options = CreateDriverOptions(browserLocation, browserDataDir, showBrowser);
+            var options = CreateDriverOptions(browserLocation, browserDataDir);
             BrowserDriver = new FirefoxDriver(service, options);
             if (showBrowser)
             {
@@ -270,7 +273,7 @@ namespace OneClickF5Login
             }
         }
 
-        private static FirefoxOptions CreateDriverOptions(string browserLocation, string browserDataDir, bool showBrowser)
+        private static FirefoxOptions CreateDriverOptions(string browserLocation, string browserDataDir)
         {
             var profile = new FirefoxProfile(browserDataDir);
             //profile.SetPreference("dom.disable_open_during_load", false);
@@ -434,7 +437,8 @@ namespace OneClickF5Login
                 return value - 97;
             }
 
-            throw new ArgumentException("hmmmmmmmmmm", nameof(c));
+            const string message = "something something went wrong";
+            throw new ArgumentException(message, nameof(c));
         }
 
         private async Task<IWebElement> FindElementByLinkTextUntilAppears(string linkText, int maxTimeout)
@@ -457,7 +461,7 @@ namespace OneClickF5Login
             return await FindElementBySomething(BrowserDriver.FindElementById, className, maxTimeout);
         }
 
-        private async Task<IWebElement> FindElementBySomething(Func<string, IWebElement> findMethod, string findText, int maxTimeout)
+        private Task<IWebElement> FindElementBySomething(Func<string, IWebElement> findMethod, string findText, int maxTimeout)
         {
             IWebElement result = null;
             var startTime = DateTime.Now;
@@ -465,7 +469,7 @@ namespace OneClickF5Login
             {
                 if ((DateTime.Now - startTime).TotalMilliseconds > maxTimeout)
                 {
-                    return null;
+                    return Task.FromResult<IWebElement>(null);
                 }
                 Thread.Sleep(250);
                 try
@@ -477,9 +481,8 @@ namespace OneClickF5Login
                     // try again until element shows up
                     // continue;
                 }
-
             }
-            return result;
+            return Task.FromResult(result);
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -542,7 +545,8 @@ namespace OneClickF5Login
 
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            MessageBox.Show("OneClickF5VPN v1.0\r\n\r\nDeveloped by İbrahim Aydın\r\n\r\nibrahim.aydin15@saglik.gov.tr");
+            const string message = "OneClickF5VPN v1.0\r\n\r\nDeveloped by İbrahim Aydın\r\n\r\nibrahim.aydin15@saglik.gov.tr";
+            MessageBox.Show(message);
         }
     }
 }

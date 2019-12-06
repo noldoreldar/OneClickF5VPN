@@ -60,7 +60,7 @@ namespace OneClickF5Login
             return section;
         }
 
-        static void OnProcessExit (object sender, EventArgs e)
+        private static void OnProcessExit (object sender, EventArgs e)
         {
             _form?.CloseBrowserDriver();
         }

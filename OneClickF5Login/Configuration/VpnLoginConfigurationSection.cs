@@ -7,10 +7,10 @@ namespace OneClickF5Login.Configuration
 
         public static VpnLoginConfigurationSection GetConfig()
         {
-            return (VpnLoginConfigurationSection)System.Configuration.ConfigurationManager.GetSection("VpnLoginSettings") ?? new VpnLoginConfigurationSection();
+            return (VpnLoginConfigurationSection)ConfigurationManager.GetSection("VpnLoginSettings") ?? new VpnLoginConfigurationSection();
         }
 
-        [System.Configuration.ConfigurationProperty("VpnLoginList")]
+        [ConfigurationProperty("VpnLoginList")]
         [ConfigurationCollection(typeof(VpnLoginConfigurationElementCollection), AddItemName = "VpnLoginItem")]
         public VpnLoginConfigurationElementCollection VpnLoginList
         {
