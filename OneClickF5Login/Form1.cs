@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -12,7 +13,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using OneClickF5Login.Configuration;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Firefox;
 using Timer = System.Timers.Timer;
 
 
@@ -20,10 +21,10 @@ namespace OneClickF5Login
 {
     public partial class Form1 : Form
     {
-        private readonly string DefaultChromeDataPath = @"";
+        private readonly string _defaultBrowserDataPath = @"firefox-browser\profile-data";
 
-        private const string DefaultChromePath = @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe";
-        private ChromeDriver ChromeDriver { get; set; }
+        private readonly string _defaultBrowserPath = @"firefox-browser\firefox.exe";
+        private FirefoxDriver BrowserDriver { get; set; }
 
         private const string ConfigUid = "{049DD0E0-1751-45B3-B840-84ED1C6A018A}";
 
@@ -31,7 +32,10 @@ namespace OneClickF5Login
 
         public Form1()
         {
-            DefaultChromeDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Google", "Chrome", "User Data");
+            var mainDir = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
+            mainDir = mainDir ?? throw new InvalidOperationException();
+            _defaultBrowserPath = Path.Combine(mainDir, _defaultBrowserPath);
+            _defaultBrowserDataPath = Path.Combine(mainDir, _defaultBrowserDataPath);
             InitializeComponent();
             var statusTimer = new Timer()
             {
@@ -54,8 +58,8 @@ namespace OneClickF5Login
             var coll = section.VpnLoginList[ConfigUid];
             txtPassword.Text = "" + coll?.Password;
             txtUserName.Text = "" + coll?.Username;
-            txtChromeDataPath.Text = string.IsNullOrEmpty(coll?.ChromeDataPath) ? DefaultChromeDataPath : coll.ChromeDataPath;
-            txtChromePath.Text = string.IsNullOrEmpty(coll?.ChromePath) ? DefaultChromePath : coll.ChromePath;
+            txtBrowserDataPath.Text = string.IsNullOrEmpty(coll?.BrowserDataPath) ? _defaultBrowserDataPath : coll.BrowserDataPath;
+            txtBrowserPath.Text = string.IsNullOrEmpty(coll?.BrowserPath) ? _defaultBrowserPath : coll.BrowserPath;
             txtOtpKey.Text = coll?.OtpKey;
             chkRemember.Checked = (coll?.RememberPassword).GetValueOrDefault();
             chkShowBrowser.Checked = (coll?.ShowBrowser).GetValueOrDefault();
@@ -82,24 +86,23 @@ namespace OneClickF5Login
                 }
                 _statusMessage = "Ayarlar kaydediliyor.";
                 SaveValuesToConfiguration();
-                _statusMessage = "Chrome sürücüsü yükleniyor.";
-                var newDataDir = CopyChromeDataDirToTemp(txtChromeDataPath.Text);
-                InitializeChromeDriver(txtChromePath.Text, newDataDir, chkShowBrowser.Checked);
+                _statusMessage = "Browser sürücüsü yükleniyor.";
+                InitializeBrowserDriver(txtBrowserPath.Text, txtBrowserDataPath.Text, chkShowBrowser.Checked);
                 if (chkShowBrowser.Checked)
                 {
-                    ChromeDriver.Manage().Window.Maximize();
+                    BrowserDriver.Manage().Window.Maximize();
                 }
                 else
                 {
-                    ChromeDriver.Manage().Window.Size = new Size(800, 800);
-                    ChromeDriver.Manage().Window.Position = new Point(6000, 6000);
+                    BrowserDriver.Manage().Window.Size = new Size(800, 800);
+                    BrowserDriver.Manage().Window.Position = new Point(6000, 6000);
                 }
-                _statusMessage = "Chrome ayarları yapılıyor.";
+                _statusMessage = "Browser ayarları yapılıyor.";
                 Thread.Sleep(500);
-                var cookies = ChromeDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("sslvpn.saglik.gov.tr")).ToList();
-                cookies.ForEach(cookie => ChromeDriver.Manage().Cookies.DeleteCookie(cookie));
+                var cookies = BrowserDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("sslvpn.saglik.gov.tr")).ToList();
+                cookies.ForEach(cookie => BrowserDriver.Manage().Cookies.DeleteCookie(cookie));
                 _statusMessage = "Sağlık Bakanlığı SSL VPN sayfası yükleniyor.";
-                ChromeDriver.Url = "https://sslvpn.saglik.gov.tr";
+                BrowserDriver.Url = "https://sslvpn.saglik.gov.tr";
                 Thread.Sleep(500);
                 await NewSessionIfNecessary();
                 _statusMessage = "VPN kullanıcı giriş işlemi gerçekleştiriliyor.";
@@ -117,13 +120,16 @@ namespace OneClickF5Login
                 Thread.Sleep(500);
                 _statusMessage = "";
                 EnableDisableForm(true);
-                Close();
+                btnLogin.Invoke(new Action(Close));
             }
             catch (Exception exception)
             {
                 _statusMessage = "";
                 EnableDisableForm(true);
-                MessageBox.Show($"{exception.Message}\r\n\r\n\r\n\r\n{exception}");
+                btnLogin.Invoke(new Action(() =>
+                {
+                    MessageBox.Show($"{exception.Message}\r\n--------------\r\n--------------\r\n{exception}");
+                }));
             }
         }
 
@@ -133,8 +139,8 @@ namespace OneClickF5Login
             {
                 btnLogin.Enabled = enabled;
                 txtUserName.Enabled = enabled;
-                txtChromeDataPath.Enabled = enabled;
-                txtChromePath.Enabled = enabled;
+                txtBrowserDataPath.Enabled = enabled;
+                txtBrowserPath.Enabled = enabled;
                 txtOtpKey.Enabled = enabled;
                 txtPassword.Enabled = enabled;
                 chkShowBrowser.Enabled = enabled;
@@ -188,8 +194,8 @@ namespace OneClickF5Login
                 Uid = ConfigUid,
                 Username = txtUserName.Text,
                 RememberPassword = chkRemember.Checked,
-                ChromeDataPath = txtChromeDataPath.Text,
-                ChromePath = txtChromePath.Text,
+                BrowserDataPath = txtBrowserDataPath.Text,
+                BrowserPath = txtBrowserPath.Text,
                 OtpKey = txtOtpKey.Text,
                 Password = chkRemember.Checked ? txtPassword.Text : "",
                 ShowBrowser = chkShowBrowser.Checked
@@ -216,22 +222,22 @@ namespace OneClickF5Login
                 errMessage.AppendLine("-- Parolanızı giriniz !!!");
             }
 
-            if (string.IsNullOrEmpty(txtChromeDataPath.Text))
+            if (string.IsNullOrEmpty(txtBrowserDataPath.Text))
             {
-                errMessage.AppendLine("-- Chrome Data Path boş değer olamaz !!!");
+                errMessage.AppendLine("-- Browser Data Path boş değer olamaz !!!");
             }
-            else if (!Directory.Exists(txtChromeDataPath.Text))
+            else if (!Directory.Exists(txtBrowserDataPath.Text))
             {
-                errMessage.AppendLine($"-- Chrome Data Path geçersiz. Chrome uygulamasının kullanıcı profil ve ayarlarını sakladığı root klasörü girmelisiniz. Örnek : {DefaultChromeDataPath}");
+                errMessage.AppendLine($"-- Browser Data Path geçersiz. Browser uygulamasının kullanıcı profil ve ayarlarını sakladığı root klasörü girmelisiniz. Örnek : {_defaultBrowserDataPath}");
             }
 
-            if (string.IsNullOrEmpty(txtChromePath.Text))
+            if (string.IsNullOrEmpty(txtBrowserPath.Text))
             {
-                errMessage.AppendLine("-- Chrome.exe Path boş değer olamaz !!!");
+                errMessage.AppendLine("-- Browser.exe Path boş değer olamaz !!!");
             }
-            else if (!File.Exists(txtChromePath.Text))
+            else if (!File.Exists(txtBrowserPath.Text))
             {
-                errMessage.AppendLine("-- Chrome.exe Path geçersiz. Chrome uygulamasının kurulu olduğu klasörde, exe dosyasını da içerecek şekilde Path giriniz.");
+                errMessage.AppendLine("-- Browser.exe Path geçersiz. Browser uygulamasının kurulu olduğu klasörde, exe dosyasını da içerecek şekilde Path giriniz.");
             }
 
             if (string.IsNullOrEmpty(txtOtpKey.Text))
@@ -246,38 +252,37 @@ namespace OneClickF5Login
             }
         }
 
-        private void InitializeChromeDriver(string chromeLocation, string chromeDataDir, bool showBrowser)
+        private void InitializeBrowserDriver(string browserLocation, string browserDataDir, bool showBrowser)
         {
-            if (ChromeDriver != null) return;
-            var service = ChromeDriverService.CreateDefaultService();
+            if (BrowserDriver != null) return;
+            var service = FirefoxDriverService.CreateDefaultService();
             service.HideCommandPromptWindow = true;
-            var options = CreateDriverOptions(chromeLocation, chromeDataDir, showBrowser);
-            ChromeDriver = new ChromeDriver(service, options);
+            var options = CreateDriverOptions(browserLocation, browserDataDir, showBrowser);
+            BrowserDriver = new FirefoxDriver(service, options);
             if (showBrowser)
             {
-                ChromeDriver.Manage().Window.Maximize();
+                BrowserDriver.Manage().Window.Maximize();
             }
             else
             {
-                ChromeDriver.Manage().Window.Size = new Size(800, 800);
-                ChromeDriver.Manage().Window.Position = new Point(6000, 6000);
+                BrowserDriver.Manage().Window.Size = new Size(800, 800);
+                BrowserDriver.Manage().Window.Position = new Point(6000, 6000);
             }
         }
 
-        private static ChromeOptions CreateDriverOptions(string chromeLocation, string chromeDataDir, bool showBrowser)
+        private static FirefoxOptions CreateDriverOptions(string browserLocation, string browserDataDir, bool showBrowser)
         {
-            var options = new ChromeOptions()
+            var profile = new FirefoxProfile(browserDataDir);
+            //profile.SetPreference("dom.disable_open_during_load", false);
+            var options = new FirefoxOptions()
             {
                 AcceptInsecureCertificates = true,
-                BinaryLocation = chromeLocation,
+                BrowserExecutableLocation = browserLocation,
+                Profile = profile,
+                UnhandledPromptBehavior = UnhandledPromptBehavior.Accept
             };
-            options.AddArgument("--disable-user-media-security");
-            options.AddArgument("--disable-web-security");
-            options.AddArgument("--allow-running-insecure-content");
-            options.AddArgument("--disable-popup-blocking");
-            options.AddArgument("--disable-notifications");
-            options.AddArgument($"--user-data-dir={chromeDataDir}");
-            options.AddArgument(!showBrowser ? "--window-size=800,800" : "--window-size=1200,800");
+            // options.AddArgument($"-profile \"{browserDataDir}\"");
+            //options.AddArgument(!showBrowser ? "-width 200" : "-width 200");
             return options;
         }
 
@@ -363,70 +368,6 @@ namespace OneClickF5Login
 
         }
 
-        private static string CopyChromeDataDirToTemp(string chromeBaseDataDir)
-        {
-
-            var tempDataDir = Path.Combine(Path.GetTempPath(), "f5-login-chrome-data");
-
-            if (!Directory.Exists(tempDataDir))
-            {
-                Directory.CreateDirectory(tempDataDir);
-                CopyDirectory(chromeBaseDataDir, tempDataDir);
-            }
-
-
-            return tempDataDir;
-        }
-
-        private static void CopyDirectory(string sourcePath, string destinationPath)
-        {
-            //Now Create all of the directories
-            foreach (var dirPath in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
-            {
-                Directory.CreateDirectory(dirPath.Replace(sourcePath, destinationPath));
-            }
-
-            //Copy all the files & Replaces any files with the same name
-            foreach (var newPath in Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories))
-            {
-                ForceCopyFile(newPath, newPath.Replace(sourcePath, destinationPath));
-            }
-        }
-
-        private static void ForceCopyFile(string sourcePath, string destinationPath)
-        {
-            try
-            {
-                File.Copy(sourcePath, destinationPath, true);
-            }
-            catch (IOException e)
-            {
-                try
-                {
-                    if (e.Message.Contains("in use"))
-                    {
-                        var process = new Process
-                        {
-                            StartInfo =
-                            {
-                                UseShellExecute = false,
-                                RedirectStandardOutput = true,
-                                FileName = "cmd.exe",
-                                Arguments = $"/C copy \"{sourcePath}\" \"{destinationPath}\""
-                            }
-                        };
-                        process.Start();
-                        process.WaitForExit();
-                        process.Close();
-                    }
-                }
-                catch
-                {
-                    // do nothing.
-                }
-            }
-        }
-
         public static byte[] ToBytes(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -498,22 +439,22 @@ namespace OneClickF5Login
 
         private async Task<IWebElement> FindElementByLinkTextUntilAppears(string linkText, int maxTimeout)
         {
-            return await FindElementBySomething(ChromeDriver.FindElementByLinkText, linkText, maxTimeout);
+            return await FindElementBySomething(BrowserDriver.FindElementByLinkText, linkText, maxTimeout);
         }
 
         private async Task<IWebElement> FindElementByNameUntilAppears(string elmName, int maxTimeout)
         {
-            return await FindElementBySomething(ChromeDriver.FindElementByName, elmName, maxTimeout);
+            return await FindElementBySomething(BrowserDriver.FindElementByName, elmName, maxTimeout);
         }
 
         private async Task<IWebElement> FindElementByClassNameUntilAppears(string className, int maxTimeout)
         {
-            return await FindElementBySomething(ChromeDriver.FindElementByClassName, className, maxTimeout);
+            return await FindElementBySomething(BrowserDriver.FindElementByClassName, className, maxTimeout);
         }
 
         private async Task<IWebElement> FindElementByIdUntilAppears(string className, int maxTimeout)
         {
-            return await FindElementBySomething(ChromeDriver.FindElementById, className, maxTimeout);
+            return await FindElementBySomething(BrowserDriver.FindElementById, className, maxTimeout);
         }
 
         private async Task<IWebElement> FindElementBySomething(Func<string, IWebElement> findMethod, string findText, int maxTimeout)
@@ -570,16 +511,16 @@ namespace OneClickF5Login
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            CloseChromeDriver();
+            CloseBrowserDriver();
         }
 
-        public void CloseChromeDriver()
+        public void CloseBrowserDriver()
         {
-            if (ChromeDriver != null)
+            if (BrowserDriver != null)
             {
                 try
                 {
-                    ChromeDriver.Close();
+                    BrowserDriver.Close();
                 }
                 catch
                 {
@@ -588,14 +529,14 @@ namespace OneClickF5Login
 
                 try
                 {
-                    ChromeDriver.Dispose();
+                    BrowserDriver.Dispose();
                 }
                 catch
                 {
                     // ignored
                 }
 
-                ChromeDriver = null;
+                BrowserDriver = null;
             }
         }
 

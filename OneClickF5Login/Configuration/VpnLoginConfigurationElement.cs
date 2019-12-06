@@ -32,17 +32,17 @@ namespace OneClickF5Login.Configuration
             set => this["rememberPassword"] = value;
         }
 
-        [ConfigurationProperty("chromeDataPath", IsRequired = false)]
-        public string ChromeDataPath {
-            get => this["chromeDataPath"] as string;
-            set => this["chromeDataPath"] = value;
+        [ConfigurationProperty("browserDataPath", IsRequired = false)]
+        public string BrowserDataPath {
+            get => this["browserDataPath"] as string;
+            set => this["browserDataPath"] = value;
         }
 
 
-        [ConfigurationProperty("chromePath", IsRequired = false)]
-        public string ChromePath {
-            get => this["chromePath"] as string;
-            set => this["chromePath"] = value;
+        [ConfigurationProperty("browserPath", IsRequired = false)]
+        public string BrowserPath {
+            get => this["browserPath"] as string;
+            set => this["browserPath"] = value;
         }
 
         

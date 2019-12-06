@@ -62,7 +62,7 @@ namespace OneClickF5Login
 
         static void OnProcessExit (object sender, EventArgs e)
         {
-            _form?.CloseChromeDriver();
+            _form?.CloseBrowserDriver();
         }
     }
 }
