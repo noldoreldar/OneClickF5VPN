@@ -32,10 +32,10 @@ namespace OneClickF5Login.Configuration
             set => this["rememberPassword"] = value;
         }
 
-        [ConfigurationProperty("browserDataPath", IsRequired = false)]
-        public string BrowserDataPath {
-            get => this["browserDataPath"] as string;
-            set => this["browserDataPath"] = value;
+        [ConfigurationProperty("browserProfilePath", IsRequired = false)]
+        public string BrowserProfilePath {
+            get => this["browserProfilePath"] as string;
+            set => this["browserProfilePath"] = value;
         }
 
 
@@ -52,10 +52,6 @@ namespace OneClickF5Login.Configuration
             set => this["otpKey"] = value;
         }
 
-        [ConfigurationProperty("showBrowser", IsRequired = false)]
-        public bool? ShowBrowser  {
-            get => this["showBrowser"] as bool?;
-            set => this["showBrowser"] = value;
-        }
+      
     }
 }

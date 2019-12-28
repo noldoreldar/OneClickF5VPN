@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Configuration;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -20,7 +19,7 @@ namespace OneClickF5Login
 {
     public partial class Form1 : Form
     {
-        private readonly string _defaultBrowserDataPath = @"firefox-browser\profile-data";
+        private readonly string _defaultBrowserProfilePath = @"firefox-browser\profile-data";
 
         private readonly string _defaultBrowserPath = @"firefox-browser\Firefox.exe";
 
@@ -35,7 +34,7 @@ namespace OneClickF5Login
             var mainDir = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
             mainDir = mainDir ?? throw new InvalidOperationException();
             _defaultBrowserPath = Path.Combine(mainDir, _defaultBrowserPath);
-            _defaultBrowserDataPath = Path.Combine(mainDir, _defaultBrowserDataPath);
+            _defaultBrowserProfilePath = Path.Combine(mainDir, _defaultBrowserProfilePath);
             InitializeComponent();
             var statusTimer = new Timer()
             {
@@ -58,11 +57,10 @@ namespace OneClickF5Login
             var coll = section.VpnLoginList[ConfigUid];
             txtPassword.Text = "" + coll?.Password;
             txtUserName.Text = "" + coll?.Username;
-            txtBrowserDataPath.Text = string.IsNullOrEmpty(coll?.BrowserDataPath) ? _defaultBrowserDataPath : coll.BrowserDataPath;
+            txtBrowserProfilePath.Text = string.IsNullOrEmpty(coll?.BrowserProfilePath) ? _defaultBrowserProfilePath : coll.BrowserProfilePath;
             txtBrowserPath.Text = string.IsNullOrEmpty(coll?.BrowserPath) ? _defaultBrowserPath : coll.BrowserPath;
             txtOtpKey.Text = coll?.OtpKey;
             chkRemember.Checked = (coll?.RememberPassword).GetValueOrDefault();
-            chkShowBrowser.Checked = (coll?.ShowBrowser).GetValueOrDefault();
             Program.SecureSection();
         }
 
@@ -87,16 +85,10 @@ namespace OneClickF5Login
                 _statusMessage = "Ayarlar kaydediliyor.";
                 SaveValuesToConfiguration();
                 _statusMessage = "Browser sürücüsü yükleniyor.";
-                InitializeBrowserDriver(txtBrowserPath.Text, txtBrowserDataPath.Text, chkShowBrowser.Checked);
-                if (chkShowBrowser.Checked)
-                {
-                    BrowserDriver.Manage().Window.Maximize();
-                }
-                else
-                {
-                    BrowserDriver.Manage().Window.Size = new Size(800, 800);
-                    BrowserDriver.Manage().Window.Position = new Point(6000, 6000);
-                }
+                InitializeBrowserDriver(txtBrowserPath.Text, txtBrowserProfilePath.Text);
+
+                BrowserDriver.Manage().Window.Maximize();
+
                 _statusMessage = "Browser ayarları yapılıyor.";
                 Thread.Sleep(500);
                 var cookies = BrowserDriver.Manage().Cookies.AllCookies.Where(i => !string.IsNullOrEmpty(i.Domain) && i.Domain.Contains("SslVpn.saglik.gov.tr")).ToList();
@@ -140,11 +132,10 @@ namespace OneClickF5Login
             {
                 btnLogin.Enabled = enabled;
                 txtUserName.Enabled = enabled;
-                txtBrowserDataPath.Enabled = enabled;
+                txtBrowserProfilePath.Enabled = enabled;
                 txtBrowserPath.Enabled = enabled;
                 txtOtpKey.Enabled = enabled;
                 txtPassword.Enabled = enabled;
-                chkShowBrowser.Enabled = enabled;
                 chkRemember.Enabled = enabled;
             }));
         }
@@ -196,11 +187,10 @@ namespace OneClickF5Login
                 Uid = ConfigUid,
                 Username = txtUserName.Text,
                 RememberPassword = chkRemember.Checked,
-                BrowserDataPath = txtBrowserDataPath.Text,
+                BrowserProfilePath = txtBrowserProfilePath.Text,
                 BrowserPath = txtBrowserPath.Text,
                 OtpKey = txtOtpKey.Text,
-                Password = chkRemember.Checked ? txtPassword.Text : "",
-                ShowBrowser = chkShowBrowser.Checked
+                Password = chkRemember.Checked ? txtPassword.Text : ""
             };
             section.VpnLoginList[ConfigUid] = sett;
             section.SectionInformation.ForceSave = true;
@@ -224,22 +214,22 @@ namespace OneClickF5Login
                 errMessage.AppendLine("-- Parolanızı giriniz !!!");
             }
 
-            if (string.IsNullOrEmpty(txtBrowserDataPath.Text))
+            if (string.IsNullOrEmpty(txtBrowserProfilePath.Text))
             {
-                errMessage.AppendLine("-- Browser Data Path boş değer olamaz !!!");
+                errMessage.AppendLine("-- Browser Profile Path boş değer olamaz !!!");
             }
-            else if (!Directory.Exists(txtBrowserDataPath.Text))
+            else if (!Directory.Exists(txtBrowserProfilePath.Text))
             {
-                errMessage.AppendLine($"-- Browser Data Path geçersiz. Browser uygulamasının kullanıcı profil ve ayarlarını sakladığı root klasörü girmelisiniz. Örnek : {_defaultBrowserDataPath}");
+                errMessage.AppendLine($"-- Browser Profile Path geçersiz. Browser uygulamasının kullanıcı profil ve ayarlarını sakladığı root klasörü girmelisiniz. Örnek : {_defaultBrowserProfilePath}");
             }
 
             if (string.IsNullOrEmpty(txtBrowserPath.Text))
             {
-                errMessage.AppendLine("-- Browser.exe Path boş değer olamaz !!!");
+                errMessage.AppendLine("-- Browser Exe Path boş değer olamaz !!!");
             }
             else if (!File.Exists(txtBrowserPath.Text))
             {
-                errMessage.AppendLine("-- Browser.exe Path geçersiz. Browser uygulamasının kurulu olduğu klasörde, exe dosyasını da içerecek şekilde Path giriniz.");
+                errMessage.AppendLine("-- Browser Exe Path geçersiz. Browser uygulamasının kurulu olduğu klasörde, exe dosyasını da içerecek şekilde Path giriniz.");
             }
 
             if (string.IsNullOrEmpty(txtOtpKey.Text))
@@ -255,27 +245,19 @@ namespace OneClickF5Login
             }
         }
 
-        private void InitializeBrowserDriver(string browserLocation, string browserDataDir, bool showBrowser)
+        private void InitializeBrowserDriver(string browserLocation, string browserProfileDir)
         {
             if (BrowserDriver != null) return;
             var service = FirefoxDriverService.CreateDefaultService();
             service.HideCommandPromptWindow = true;
-            var options = CreateDriverOptions(browserLocation, browserDataDir);
+            var options = CreateDriverOptions(browserLocation, browserProfileDir);
             BrowserDriver = new FirefoxDriver(service, options);
-            if (showBrowser)
-            {
-                BrowserDriver.Manage().Window.Maximize();
-            }
-            else
-            {
-                BrowserDriver.Manage().Window.Size = new Size(800, 800);
-                BrowserDriver.Manage().Window.Position = new Point(6000, 6000);
-            }
+            BrowserDriver.Manage().Window.Maximize();
         }
 
-        private static FirefoxOptions CreateDriverOptions(string browserLocation, string browserDataDir)
+        private static FirefoxOptions CreateDriverOptions(string browserLocation, string browserProfileDir)
         {
-            var profile = new FirefoxProfile(browserDataDir);
+            var profile = new FirefoxProfile(browserProfileDir);
             //profile.SetPreference("dom.disable_open_during_load", false);
             var options = new FirefoxOptions()
             {
@@ -284,7 +266,7 @@ namespace OneClickF5Login
                 Profile = profile,
                 UnhandledPromptBehavior = UnhandledPromptBehavior.Accept
             };
-            // options.AddArgument($"-profile \"{browserDataDir}\"");
+            //options.AddArgument($"profile {browserProfileDir}");
             //options.AddArgument(!showBrowser ? "-width 200" : "-width 200");
             return options;
         }
@@ -545,7 +527,7 @@ namespace OneClickF5Login
 
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            const string message = "OneClickF5VPN v1.0\r\n\r\nDeveloped by İbrahim Aydın\r\n\r\nibrahim.aydin15@saglik.gov.tr";
+            const string message = "OneClickF5VPN v1.1\r\n\r\nDeveloped by İbrahim Aydın\r\n\r\nibrahim.aydin15@saglik.gov.tr";
             MessageBox.Show(message);
         }
     }
